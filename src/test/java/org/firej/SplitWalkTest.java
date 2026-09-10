@@ -134,6 +134,24 @@ class SplitWalkTest {
         assertTrue(small.keySet().stream().noneMatch(name -> name.startsWith("seg")));
     }
 
+    @Test
+    void theSplitCanBeSwitchedOffForMeasurement() {
+        // The size study compares the same build with and without the split.
+        Map<String, Integer> unsplit = CodeSize.methods(new AsmCodeGenerator(true, true, false).emit(flatten(LITERAL)));
+        assertTrue(unsplit.keySet().stream().noneMatch(name -> name.startsWith("seg")), unsplit.keySet().toString());
+        assertTrue(unsplit.get("walk") > AsmCodeGenerator.JIT_LIMIT, "walk is " + unsplit.get("walk") + " bytes");
+        Map<String, Integer> split = CodeSize.methods(new AsmCodeGenerator(true, true, true).emit(flatten(LITERAL)));
+        assertTrue(split.keySet().stream().anyMatch(name -> name.startsWith("seg")));
+        // And the unsplit class still matches like the split one.
+        Firej unsplitEngine = Firej.builder().generator(new AsmCodeGenerator(true, true, false))
+                .cache(CacheKind.DISABLED).build();
+        Firej splitEngine = Firej.builder().generator(new AsmCodeGenerator(true, true, true))
+                .cache(CacheKind.DISABLED).build();
+        String input = LITERAL.substring(0, 300);
+        assertEquals(splitEngine.compile(LITERAL).matches(input), unsplitEngine.compile(LITERAL).matches(input));
+        assertTrue(unsplitEngine.compile(LITERAL).matches(LITERAL));
+    }
+
     @ParameterizedTest
     @EnumSource(value = GeneratorKind.class, names = {"BYTECODE", "BYTECODE_RANGES"})
     void splitWalkMatchesLikeTheInterpreterAndBrics(GeneratorKind kind) {

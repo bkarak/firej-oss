@@ -125,9 +125,13 @@ there is no separate search automaton.
   instances.
 - `org.firej.tools`: `Main` and `MiniTest`, `Regex101Data` (the corpus
   loader), `Regex101Filter` (the corpus builder, which compiles each
-  candidate in a child JVM so that a blow-up only kills that process) and
+  candidate in a child JVM so that a blow-up only kills that process),
   `CodeSize` (the bytecode size of every method of a class file, read without
-  loading it).
+  loading it), and the benchmarks of the paper: `MiniBenchmark`,
+  `Regex101Benchmark` (the SPE protocol against `java.util.regex`),
+  `SizeBenchmark` (matching cost against the size of the generated code, with
+  `-Dfirej.nosplit=true` to switch the split walk off) and
+  `ExpressionMetrics` (Ehrenfeucht–Zeiger size and length).
 
 ## What changed from 0.71
 
@@ -149,6 +153,9 @@ of compiling every pattern to an empty DFA.
 ```bash
 mvn -q test
 mvn -q exec:java -Dexec.args=test
+mvn -q exec:java -Dexec.args=benchmark            # IPv4 and two more vs Brics and java.util.regex, ~1 s
+mvn -q exec:java -Dexec.args=benchmark-regex101   # SPE-protocol compile and match times, forked JVMs
+mvn -q exec:java -Dexec.args=benchmark-size       # the size study: six walkers over synthetic families and both corpora
 ```
 
 The first runs the JUnit suite. The second prints the MiniTest cases of the
@@ -176,3 +183,11 @@ compile are skipped.
 ## License
 
 Apache License 2.0. See [License](License).
+
+## The paper
+
+The benchmarks and corpora here are those of *FIRE/J: Compiling Regular
+Expressions to JIT-Compilable JVM Bytecode* (manuscript, 2026), which
+supersedes Karakoidas & Spinellis, SPE 38(6):557–573, 2008. The ten-engine
+benchmark the paper reports is [bkarak/regex-benchmark](https://github.com/bkarak/regex-benchmark),
+which builds this library from a sibling checkout.

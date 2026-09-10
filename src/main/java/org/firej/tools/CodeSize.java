@@ -22,12 +22,13 @@ import java.util.Map;
 
 /**
  * Reads the bytecode size of the methods of a class file without loading
- * it: the {@code code_length} of each {@code Code} attribute. The tests use
- * it on the generated matcher, because what HotSpot does with a method
- * depends on that number — one over {@code HugeMethodLimit} (8,000 bytes)
- * is never JIT-compiled while {@code DontCompileHugeMethods} is on, and it
- * is on by default — and the threaded emitter splits its walk into
- * {@code seg0}, {@code seg1}, … to stay under it.
+ * it: the {@code code_length} of each {@code Code} attribute. The size
+ * benchmark and the tests use it on the generated matcher, because what
+ * HotSpot does with a method depends on that number — one over
+ * {@code HugeMethodLimit} (8,000 bytes) is never JIT-compiled while
+ * {@code DontCompileHugeMethods} is on, and it is on by default — and the
+ * threaded emitter splits its walk into {@code seg0}, {@code seg1}, … to
+ * stay under it.
  */
 public final class CodeSize {
     private CodeSize() {

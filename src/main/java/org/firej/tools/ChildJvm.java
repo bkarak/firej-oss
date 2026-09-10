@@ -29,7 +29,7 @@ import org.objectweb.asm.ClassWriter;
 import dk.brics.automaton.Automaton;
 
 /**
- * How the corpus filter launches a child JVM. The classpath is
+ * How the benchmark and the corpus filter launch a child JVM. The classpath is
  * taken from where the classes actually loaded from — {@code java.class.path}
  * is Maven's own boot jar under {@code exec:java}, and a hand-written fallback
  * would pin dependency versions a second time outside {@code pom.xml}.

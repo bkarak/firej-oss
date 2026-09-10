@@ -96,8 +96,8 @@ import org.objectweb.asm.Opcodes;
  * bytecode is longer than {@link #JIT_LIMIT} (its {@code HugeMethodLimit},
  * 8,000 bytes, while {@code DontCompileHugeMethods} is on, as it is by
  * default); such a method runs in the JVM's bytecode interpreter, 20 to 40
- * times slower than compiled code and slower than FIRE/J's own interpreter,
- * a cliff a walk reaches at a few hundred states. So a
+ * times slower than compiled code and slower than FIRE/J's own interpreter —
+ * the cliff the size study of 2026-09-08 found at a few hundred states. So a
  * threaded {@code walk} that would exceed the limit is <em>split</em>: the
  * states, numbered along the paths a walk takes, are cut into consecutive
  * segments whose blocks fit under the limit, each segment is a method of its
@@ -133,9 +133,17 @@ public final class AsmCodeGenerator implements CodeGenerator {
     /** A DFA with more states than a {@code char} can index is left to the interpreter. */
     private static final int MAX_STATES = Character.MAX_VALUE;
 
+    /**
+     * System property that disables the split of a large threaded walk, so
+     * that the size study can measure the same build with and without it.
+     * Off by default; never set it in production.
+     */
+    public static final String NO_SPLIT_PROPERTY = "firej.nosplit";
+
     private final GeneratedClassLoader loader = new GeneratedClassLoader();
     private final boolean threaded;
     private final boolean classMap;
+    private final boolean split;
 
     public AsmCodeGenerator() {
         this(true, true);
@@ -146,8 +154,18 @@ public final class AsmCodeGenerator implements CodeGenerator {
     }
 
     public AsmCodeGenerator(boolean threaded, boolean classMap) {
+        this(threaded, classMap, !Boolean.getBoolean(NO_SPLIT_PROPERTY));
+    }
+
+    /**
+     * @param split whether a threaded walk over {@link #JIT_LIMIT} is split
+     *              into segment methods; {@code false} keeps the single
+     *              method, which HotSpot then leaves to its interpreter
+     */
+    public AsmCodeGenerator(boolean threaded, boolean classMap, boolean split) {
         this.threaded = threaded;
         this.classMap = threaded && classMap;
+        this.split = split;
     }
 
     @Override
@@ -160,7 +178,7 @@ public final class AsmCodeGenerator implements CodeGenerator {
         String internal = PACKAGE.replace('.', '/') + "/" + simple;
         byte[] bytecode;
         try {
-            bytecode = emit(internal, dfa, threaded, classMap);
+            bytecode = emit(internal, dfa, threaded, classMap, split);
         } catch (MethodTooLargeException | ClassTooLargeException e) {
             // The switch emitter is one method under the JVM's 64 KiB cap; the threaded
             // one is split into segments, but a class can still overflow its constant pool.
@@ -172,13 +190,13 @@ public final class AsmCodeGenerator implements CodeGenerator {
 
     /**
      * The class file this generator would define for {@code dfa}, for
-     * inspection rather than loading: the tests read the sizes of
+     * inspection rather than loading: the size benchmark reads the sizes of
      * {@code walk} and its segments off it.
      *
      * @throws MethodTooLargeException if a method would exceed the JVM's 64 KiB cap
      */
     public byte[] emit(FlattenedDfa dfa) {
-        return emit(PACKAGE.replace('.', '/') + "/Probe", dfa, threaded, classMap);
+        return emit(PACKAGE.replace('.', '/') + "/Probe", dfa, threaded, classMap, split);
     }
 
     private static Regex newInstance(Class<?> cls) {
@@ -192,6 +210,10 @@ public final class AsmCodeGenerator implements CodeGenerator {
     }
 
     static byte[] emit(String internalName, FlattenedDfa dfa, boolean threaded, boolean classMap) {
+        return emit(internalName, dfa, threaded, classMap, true);
+    }
+
+    static byte[] emit(String internalName, FlattenedDfa dfa, boolean threaded, boolean classMap, boolean split) {
         Partition partition = threaded && classMap ? Partition.of(dfa) : null;
         if (!threaded) {
             ClassWriter cw = beginClass(internalName, dfa, partition, null);
@@ -202,7 +224,7 @@ public final class AsmCodeGenerator implements CodeGenerator {
         Threaded emitter = new Threaded(internalName, dfa, partition);
         ClassWriter cw = beginClass(internalName, dfa, partition, null);
         Threaded.Layout single = emitter.emitSingle(cw);
-        if (single.length() <= JIT_LIMIT) {
+        if (single.length() <= JIT_LIMIT || !split) {
             cw.visitEnd();
             return cw.toByteArray();
         }

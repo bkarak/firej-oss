@@ -16,8 +16,7 @@
 package org.firej.tools;
 
 /**
- * Command-line entry: {@code org.firej.tools.Main test} prints the original
- * MiniTest cases against the current engine.
+ * Command-line entry: {@code java -jar firej.jar test|benchmark|benchmark-regex101|benchmark-size}.
  */
 public final class Main {
     private Main() {
@@ -25,7 +24,7 @@ public final class Main {
 
     private static void help() {
         System.out.println("FIRE/J");
-        System.out.println("usage: org.firej.tools.Main test");
+        System.out.println("usage: org.firej.tools.Main (test|benchmark|benchmark-regex101|benchmark-size)");
     }
 
     public static void main(String[] args) {
@@ -35,6 +34,9 @@ public final class Main {
         }
         switch (args[0]) {
             case "test" -> MiniTest.run();
+            case "benchmark" -> MiniBenchmark.run();
+            case "benchmark-regex101" -> Regex101Benchmark.run();
+            case "benchmark-size" -> SizeBenchmark.run();
             default -> help();
         }
     }

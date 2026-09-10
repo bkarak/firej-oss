@@ -11,7 +11,7 @@
 
     <name>FIRE/J</name>
     <description>Fast Implementation of Regular Expressions for Java — compiles a DFA to JVM bytecode.</description>
-    <url>https://github.com/bkarak/firej-oss</url>
+    <url>https://github.com/bkarak/firej</url>
 
     <licenses>
         <license>
