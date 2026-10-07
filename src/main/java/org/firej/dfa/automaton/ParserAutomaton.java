@@ -18,37 +18,27 @@ package org.firej.dfa.automaton;
 import org.firej.RegexCompilationException;
 import org.firej.dfa.DFA;
 import org.firej.dfa.Parser;
-import org.firej.dfa.PreProcessor;
 
 import dk.brics.automaton.RegExp;
 
 /**
- * Parser backend using Anders Møller's automaton library (the original FIRE/J default).
+ * Parser backend using Anders Møller's automaton library (the original FIRE/J
+ * default). It reads the dk.brics dialect only, so the dialect the user wrote
+ * is the {@code BricsPreprocessor}'s concern, not this class's.
  */
 public final class ParserAutomaton implements Parser {
 
     @Override
-    public PreProcessor.Processed preprocess(String regex) {
-        return PreProcessor.getInstance().process(regex);
-    }
-
-    @Override
-    public DFA getDFA(String expression, int flags) {
+    public DFA getDFA(String expression) {
         try {
-            RegExp reg = new RegExp(expression);
-            return new DFAutomaton(reg.toAutomaton());
+            return new DFAutomaton(new RegExp(expression).toAutomaton());
         } catch (IllegalArgumentException e) {
             throw new RegexCompilationException("Invalid regular expression: " + expression, e);
         }
     }
 
     @Override
-    public String getAuthor() {
-        return "Vassilios Karakoidas";
-    }
-
-    @Override
-    public String getName() {
+    public String name() {
         return "AUTOMATON";
     }
 }

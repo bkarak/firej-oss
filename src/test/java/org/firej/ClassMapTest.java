@@ -93,9 +93,9 @@ class ClassMapTest {
 
     @Test
     void generatorsAreNamed() {
-        assertEquals("BYTECODE", GeneratorKind.BYTECODE.create().getName());
-        assertEquals("BYTECODE_RANGES", GeneratorKind.BYTECODE_RANGES.create().getName());
-        assertEquals("BYTECODE_SWITCH", GeneratorKind.BYTECODE_SWITCH.create().getName());
+        assertEquals("BYTECODE", GeneratorKind.BYTECODE.create().name());
+        assertEquals("BYTECODE_RANGES", GeneratorKind.BYTECODE_RANGES.create().name());
+        assertEquals("BYTECODE_SWITCH", GeneratorKind.BYTECODE_SWITCH.create().name());
         assertTrue(engine(GeneratorKind.BYTECODE).compile("[a-zA-Z_0-9]+").matches("Az_9"));
     }
 

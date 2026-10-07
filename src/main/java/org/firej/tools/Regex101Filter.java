@@ -38,7 +38,7 @@ import org.firej.codegen.GeneratorKind;
  */
 public final class Regex101Filter {
     private static final Pattern PCRE = Pattern.compile(
-            "\\(\\?|"
+            "\\(\\?|\\(\\*|"
                     + "\\*[?+]|\\+[?+]|\\?[?+]|"
                     + "\\\\[1-9AbBzZGkHPQRE]|"
                     + "\\[\\[:|"

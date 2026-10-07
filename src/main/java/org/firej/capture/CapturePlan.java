@@ -19,7 +19,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+
+import org.firej.RegexCompilationException;
 
 import org.firej.MatchResult;
 import org.firej.capture.Expr.Alt;
@@ -46,7 +47,6 @@ import org.firej.capture.Expr.Str;
  * {@link org.firej.Regex} keeps and reuses across runs.
  */
 public final class CapturePlan {
-    private static final ConcurrentHashMap<String, CapturePlan> CACHE = new ConcurrentHashMap<>();
     private static final CapturePlan NONE = new CapturePlan(new Empty(), 0);
 
     private final Expr root;
@@ -85,11 +85,24 @@ public final class CapturePlan {
         }
     }
 
+    /**
+     * The plan for a pattern, or a compile failure.
+     *
+     * <p>A pattern with no groups gets {@link #NONE} and costs nothing. A pattern
+     * that <em>has</em> groups but whose plan cannot be built used to get
+     * {@code NONE} as well — so {@code groupCount()} answered 0 for a pattern with
+     * two groups, and every group came back null from a match that had otherwise
+     * succeeded. That is the failure mode this library's own rule forbids: do not
+     * silently succeed, throw.
+     *
+     * <p>It happens because the plan is still parsed through the dk.brics front end
+     * whatever engine compiled the automaton, so a pattern the native engine accepts
+     * and that front end rejects has a working DFA and no plan. Four rows of the
+     * regexlib corpus are in exactly that position. Lowering the native engine's own
+     * syntax tree to a plan would remove the asymmetry; until then the pattern is
+     * refused rather than half-supported.
+     */
     public static CapturePlan compile(String pattern) {
-        return CACHE.computeIfAbsent(pattern, CapturePlan::parse);
-    }
-
-    static CapturePlan parse(String pattern) {
         try {
             ExprParser.Parsed parsed = ExprParser.parse(pattern);
             if (parsed.groupCount() == 0) {
@@ -97,8 +110,51 @@ public final class CapturePlan {
             }
             return new CapturePlan(parsed.root(), parsed.groupCount());
         } catch (RuntimeException e) {
-            return NONE;
+            if (!hasCapturingGroup(pattern)) {
+                return NONE;                    // nothing to recover; the failure is moot
+            }
+            throw new RegexCompilationException(
+                    "The automaton compiles but no capturing-group plan can be built for: " + pattern
+                            + " -- the plan is parsed through the dk.brics front end, which rejects it ("
+                            + e.getMessage() + ")", e);
         }
+    }
+
+    /**
+     * Whether the pattern has a group whose contents would be captured, skipping
+     * escapes, character classes and the non-capturing forms.
+     */
+    private static boolean hasCapturingGroup(String pattern) {
+        boolean inClass = false;
+        for (int i = 0; i < pattern.length(); i++) {
+            char c = pattern.charAt(i);
+            if (c == '\\') {
+                i++;
+            } else if (inClass) {
+                if (c == ']') {
+                    inClass = false;
+                }
+            } else if (c == '[') {
+                inClass = true;
+                if (i + 1 < pattern.length() && pattern.charAt(i + 1) == '^') {
+                    i++;
+                }
+                if (i + 1 < pattern.length() && pattern.charAt(i + 1) == ']') {
+                    i++;
+                }
+            } else if (c == '(') {
+                if (i + 1 >= pattern.length() || pattern.charAt(i + 1) != '?') {
+                    return true;                // a plain group
+                }
+                boolean named = pattern.startsWith("(?P<", i)
+                        || (pattern.startsWith("(?<", i) && i + 3 < pattern.length()
+                                && pattern.charAt(i + 3) != '=' && pattern.charAt(i + 3) != '!');
+                if (named) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public int groupCount() {

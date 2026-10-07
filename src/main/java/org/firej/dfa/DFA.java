@@ -16,16 +16,22 @@
 package org.firej.dfa;
 
 /**
- * Deterministic finite automaton produced by a {@link Parser}.
+ * Deterministic finite automaton produced by a {@link Parser}. This is the
+ * contract a third-party parser implements: {@link FlattenedDfa#from} reads
+ * the states, their numbers, their accept flags and their transitions, and
+ * nothing else.
  */
 public interface DFA {
     State[] getStates();
 
     State getInitialState();
 
-    void addState(State s);
-
-    String toDot();
-
-    void saveDot(String filename);
+    /**
+     * This automaton in the Graphviz DOT language, states renumbered as the
+     * code generators see them. {@code Firej.toDot(pattern)} does the same
+     * with the pattern and its anchors on the graph.
+     */
+    default String toDot() {
+        return FlattenedDfa.from("", this, false, false).toDot();
+    }
 }

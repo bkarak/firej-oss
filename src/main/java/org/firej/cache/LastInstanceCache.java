@@ -16,8 +16,8 @@
 package org.firej.cache;
 
 public final class LastInstanceCache implements RegexCache {
-    private volatile String pattern;
-    private volatile RegexTemplate template;
+    private String pattern;
+    private RegexTemplate template;
 
     @Override
     public synchronized RegexTemplate get(String regex) {
@@ -34,6 +34,12 @@ public final class LastInstanceCache implements RegexCache {
     }
 
     @Override
+    public synchronized void clear() {
+        pattern = null;
+        template = null;
+    }
+
+    @Override
     public synchronized void remove(String regex) {
         if (regex.equals(pattern)) {
             pattern = null;
@@ -42,13 +48,7 @@ public final class LastInstanceCache implements RegexCache {
     }
 
     @Override
-    public synchronized void clear() {
-        pattern = null;
-        template = null;
-    }
-
-    @Override
-    public String getName() {
+    public String name() {
         return "LAST_INSTANCE";
     }
 }

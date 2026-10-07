@@ -32,17 +32,17 @@ public final class MemoryCache implements RegexCache {
     }
 
     @Override
-    public void remove(String regex) {
-        cache.remove(regex);
-    }
-
-    @Override
     public void clear() {
         cache.clear();
     }
 
     @Override
-    public String getName() {
+    public void remove(String regex) {
+        cache.remove(regex);
+    }
+
+    @Override
+    public String name() {
         return "MEMORY";
     }
 }

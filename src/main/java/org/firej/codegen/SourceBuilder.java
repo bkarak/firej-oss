@@ -13,38 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.firej.util;
+package org.firej.codegen;
 
 /**
- * Indenting string buffer used by DOT and Java source renderers.
+ * Indenting string buffer for {@link JavaSourceRenderer}.
  */
-public final class SourceBuilder {
-    private static final String[] TABS = {
-            "", "\t", "\t\t", "\t\t\t", "\t\t\t\t", "\t\t\t\t\t", "\t\t\t\t\t\t"
-    };
+final class SourceBuilder {
     private final StringBuilder buf = new StringBuilder();
 
-    public void appendln() {
+    void appendln() {
         buf.append('\n');
     }
 
-    public void appendln(String str) {
+    void appendln(String str) {
         buf.append(str).append('\n');
     }
 
-    public void append(int indent, String str) {
-        if (indent < TABS.length) {
-            buf.append(TABS[indent]).append(str);
-        } else {
-            buf.append(TABS[TABS.length - 1]);
-            buf.append("\t".repeat(indent - (TABS.length - 1)));
-            buf.append(str);
-        }
-    }
-
-    public void appendln(int indent, String str) {
-        append(indent, str);
-        buf.append('\n');
+    void appendln(int indent, String str) {
+        buf.append("\t".repeat(indent)).append(str).append('\n');
     }
 
     @Override

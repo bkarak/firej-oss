@@ -30,7 +30,8 @@ import org.firej.capture.Expr.Nothing;
 import org.firej.capture.Expr.Repeat;
 import org.firej.capture.Expr.Span;
 import org.firej.capture.Expr.Str;
-import org.firej.dfa.PreProcessor;
+import org.firej.dfa.Preprocessor;
+import org.firej.dfa.BricsPreprocessor;
 
 /**
  * Parses the preprocessed Brics dialect. Unlike Brics, {@code (...)} becomes a
@@ -51,7 +52,7 @@ final class ExprParser {
     }
 
     static Parsed parse(String pattern) {
-        PreProcessor.Processed p = PreProcessor.getInstance().process(pattern);
+        Preprocessor.Processed p = BricsPreprocessor.getInstance().process(pattern);   // EXTENDED: the widest reading
         String processed = p.expression();
         if (processed.isEmpty()) {
             return new Parsed(new Empty(), 0);

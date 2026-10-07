@@ -37,9 +37,9 @@ public abstract class Regex {
     private final CapturePlan capturePlan;
     private CapturePlan.Engine captureEngine;
 
-    protected Regex(String regex) {
+    protected Regex(String regex, CapturePlan capturePlan) {
         this.regex = regex;
-        this.capturePlan = CapturePlan.compile(regex);
+        this.capturePlan = capturePlan;
         this.groupCount = capturePlan.groupCount();
         this.matchResult = new MatchResult(this);
     }

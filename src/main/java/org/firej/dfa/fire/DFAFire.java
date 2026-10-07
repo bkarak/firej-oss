@@ -15,38 +15,74 @@
  */
 package org.firej.dfa.fire;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import org.firej.dfa.AbstractDFA;
+import org.firej.dfa.DFA;
 import org.firej.dfa.State;
+import org.firej.dfa.Transition;
 
-public final class DFAFire extends AbstractDFA {
-    private final List<State> states = new ArrayList<>();
-    private final State initial;
+/** The native engine's automaton: state {@code 0} is the initial one. */
+final class DFAFire implements DFA {
+    private final StateFire[] states;
 
-    public DFAFire() {
-        this.initial = new StateFire(this, 0, 0, false);
-        states.add(initial);
-    }
-
-    @Override
-    public String toDot() {
-        return toDot(getStates());
-    }
-
-    @Override
-    public void addState(State s) {
-        states.add(s);
+    /**
+     * @param trans per state, its transitions as {@code {lo, hi, destination}}
+     */
+    DFAFire(boolean[] accept, List<List<int[]>> trans) {
+        states = new StateFire[accept.length];
+        for (int i = 0; i < states.length; i++) {
+            states[i] = new StateFire(i, accept[i], new Transition[trans.get(i).size()]);
+        }
+        for (int i = 0; i < states.length; i++) {
+            List<int[]> edges = trans.get(i);
+            for (int k = 0; k < edges.size(); k++) {
+                int[] e = edges.get(k);
+                states[i].transitions[k] = new TransitionFire(e[0], e[1], states[e[2]]);
+            }
+        }
     }
 
     @Override
     public State getInitialState() {
-        return initial;
+        return states[0];
     }
 
     @Override
     public State[] getStates() {
-        return states.toArray(State[]::new);
+        return states.clone();
+    }
+
+    private record StateFire(int number, boolean accept, Transition[] transitions) implements State {
+        @Override
+        public int getStateNumber() {
+            return number;
+        }
+
+        @Override
+        public boolean isAccept() {
+            return accept;
+        }
+
+        @Override
+        public Transition[] getTransitions() {
+            return transitions.clone();
+        }
+    }
+
+    private record TransitionFire(int min, int max, State dest) implements Transition {
+        @Override
+        public int getMin() {
+            return min;
+        }
+
+        @Override
+        public int getMax() {
+            return max;
+        }
+
+        @Override
+        public State getDest() {
+            return dest;
+        }
     }
 }

@@ -16,10 +16,16 @@
 package org.firej.codegen;
 
 import org.firej.cache.RegexTemplate;
+import org.firej.capture.CapturePlan;
 import org.firej.dfa.FlattenedDfa;
 
 public interface CodeGenerator {
-    RegexTemplate compile(FlattenedDfa dfa);
+    /**
+     * A template whose instances walk {@code dfa} and recover groups with
+     * {@code capturePlan}, which every instance shares.
+     */
+    RegexTemplate compile(FlattenedDfa dfa, CapturePlan capturePlan);
 
-    String getName();
+    /** A short name, for diagnostics. */
+    String name();
 }

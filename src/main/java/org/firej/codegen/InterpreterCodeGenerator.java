@@ -16,17 +16,18 @@
 package org.firej.codegen;
 
 import org.firej.cache.RegexTemplate;
+import org.firej.capture.CapturePlan;
 import org.firej.dfa.FlattenedDfa;
 import org.firej.runtime.InterpreterRegex;
 
 public final class InterpreterCodeGenerator implements CodeGenerator {
     @Override
-    public RegexTemplate compile(FlattenedDfa dfa) {
-        return () -> new InterpreterRegex(dfa);
+    public RegexTemplate compile(FlattenedDfa dfa, CapturePlan capturePlan) {
+        return () -> new InterpreterRegex(dfa, capturePlan);
     }
 
     @Override
-    public String getName() {
+    public String name() {
         return "INTERPRETER";
     }
 }

@@ -21,56 +21,49 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.firej.dfa.AbstractDFA;
+import org.firej.dfa.DFA;
 import org.firej.dfa.State;
+import org.firej.dfa.Transition;
 
 import dk.brics.automaton.Automaton;
 
 /**
- * FIRE/J view of a Brics {@link Automaton}. States are numbered densely in
- * encounter order — we never parse {@code State.toString()}, which is how the
- * 2007 code recovered numbers.
+ * FIRE/J view of a Brics {@link Automaton}, determinized and minimized. States
+ * are numbered densely in encounter order, the initial state first — we never
+ * parse {@code State.toString()}, which is how the 2007 code recovered numbers.
  */
-public final class DFAutomaton extends AbstractDFA {
-    private final Automaton automaton;
-    private final StateAutomaton[] states;
-    private final StateAutomaton initial;
+final class DFAutomaton implements DFA {
+    private final BricsState[] states;
+    private final BricsState initial;
 
-    public DFAutomaton(Automaton automaton) {
+    DFAutomaton(Automaton automaton) {
         automaton.determinize();
         automaton.minimize();
-        this.automaton = automaton;
 
-        Map<dk.brics.automaton.State, StateAutomaton> map = new IdentityHashMap<>();
-        List<StateAutomaton> list = new ArrayList<>();
-        int n = 0;
-
+        Map<dk.brics.automaton.State, BricsState> map = new IdentityHashMap<>();
+        List<dk.brics.automaton.State> raw = new ArrayList<>();
         dk.brics.automaton.State rawInitial = automaton.getInitialState();
         if (rawInitial != null) {
-            StateAutomaton wrapped = new StateAutomaton(this, rawInitial, n++);
-            map.put(rawInitial, wrapped);
-            list.add(wrapped);
+            raw.add(rawInitial);
         }
-
-        Set<dk.brics.automaton.State> raw = automaton.getStates();
-        for (dk.brics.automaton.State st : raw) {
-            if (map.containsKey(st)) {
-                continue;
+        Set<dk.brics.automaton.State> all = automaton.getStates();
+        for (dk.brics.automaton.State st : all) {
+            if (st != rawInitial) {
+                raw.add(st);
             }
-            StateAutomaton wrapped = new StateAutomaton(this, st, n++);
-            map.put(st, wrapped);
-            list.add(wrapped);
         }
-
-        for (StateAutomaton s : list) {
-            s.resolveTransitions(map);
+        for (dk.brics.automaton.State st : raw) {
+            map.put(st, new BricsState(map.size(), st.isAccept(), new Transition[st.getTransitions().size()]));
         }
-        this.states = list.toArray(StateAutomaton[]::new);
+        for (dk.brics.automaton.State st : raw) {
+            BricsState s = map.get(st);
+            int i = 0;
+            for (dk.brics.automaton.Transition t : st.getTransitions()) {
+                s.transitions[i++] = new BricsTransition(t.getMin(), t.getMax(), map.get(t.getDest()));
+            }
+        }
+        this.states = raw.stream().map(map::get).toArray(BricsState[]::new);
         this.initial = rawInitial == null ? null : map.get(rawInitial);
-    }
-
-    public Automaton getAutomaton() {
-        return automaton;
     }
 
     @Override
@@ -79,17 +72,41 @@ public final class DFAutomaton extends AbstractDFA {
     }
 
     @Override
-    public String toDot() {
-        return automaton.toDot();
-    }
-
-    @Override
     public State getInitialState() {
         return initial;
     }
 
-    @Override
-    public void addState(State s) {
-        throw new UnsupportedOperationException("Brics automata are immutable from FIRE/J");
+    private record BricsState(int number, boolean accept, Transition[] transitions) implements State {
+        @Override
+        public int getStateNumber() {
+            return number;
+        }
+
+        @Override
+        public boolean isAccept() {
+            return accept;
+        }
+
+        @Override
+        public Transition[] getTransitions() {
+            return transitions.clone();
+        }
+    }
+
+    private record BricsTransition(int min, int max, State dest) implements Transition {
+        @Override
+        public int getMin() {
+            return min;
+        }
+
+        @Override
+        public int getMax() {
+            return max;
+        }
+
+        @Override
+        public State getDest() {
+            return dest;
+        }
     }
 }

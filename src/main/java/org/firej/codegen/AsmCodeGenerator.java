@@ -45,6 +45,7 @@ import static org.objectweb.asm.Opcodes.PUTSTATIC;
 import static org.objectweb.asm.Opcodes.RETURN;
 import static org.objectweb.asm.Opcodes.V21;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -57,6 +58,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.firej.Regex;
 import org.firej.RegexCompilationException;
 import org.firej.cache.RegexTemplate;
+import org.firej.capture.CapturePlan;
 import org.firej.dfa.FlattenedDfa;
 import org.firej.dfa.FlattenedDfa.Range;
 import org.firej.runtime.GeneratedClassLoader;
@@ -114,6 +116,7 @@ import org.objectweb.asm.Opcodes;
 public final class AsmCodeGenerator implements CodeGenerator {
     private static final String SUPER = "org/firej/runtime/CharArrayRegex";
     private static final String CLASS_MAP = "org/firej/runtime/ClassMap";
+    private static final String INIT = "(Lorg/firej/capture/CapturePlan;)V";
     private static final String PACKAGE = "org.firej.generated";
     private static final AtomicLong NEXT_ID = new AtomicLong();
     /** A state with more ranges than this dispatches through the class map. */
@@ -169,9 +172,9 @@ public final class AsmCodeGenerator implements CodeGenerator {
     }
 
     @Override
-    public synchronized RegexTemplate compile(FlattenedDfa dfa) {
+    public synchronized RegexTemplate compile(FlattenedDfa dfa, CapturePlan capturePlan) {
         if (dfa.stateCount() > MAX_STATES) {
-            return () -> new InterpreterRegex(dfa);
+            return () -> new InterpreterRegex(dfa, capturePlan);
         }
         String simple = "R" + NEXT_ID.incrementAndGet();
         String binary = PACKAGE + "." + simple;
@@ -182,10 +185,15 @@ public final class AsmCodeGenerator implements CodeGenerator {
         } catch (MethodTooLargeException | ClassTooLargeException e) {
             // The switch emitter is one method under the JVM's 64 KiB cap; the threaded
             // one is split into segments, but a class can still overflow its constant pool.
-            return () -> new InterpreterRegex(dfa);
+            return () -> new InterpreterRegex(dfa, capturePlan);
         }
-        Class<?> cls = loader.define(binary, bytecode);
-        return () -> newInstance(cls);
+        Constructor<?> init;
+        try {
+            init = loader.define(binary, bytecode).getDeclaredConstructor(CapturePlan.class);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException("Generated matcher has no constructor", e);
+        }
+        return () -> newInstance(init, capturePlan);
     }
 
     /**
@@ -199,18 +207,14 @@ public final class AsmCodeGenerator implements CodeGenerator {
         return emit(PACKAGE.replace('.', '/') + "/Probe", dfa, threaded, classMap, split);
     }
 
-    private static Regex newInstance(Class<?> cls) {
+    private static Regex newInstance(Constructor<?> init, CapturePlan capturePlan) {
         try {
-            return (Regex) cls.getDeclaredConstructor().newInstance();
+            return (Regex) init.newInstance(capturePlan);
         } catch (InvocationTargetException e) {
             throw new RegexCompilationException("Generated matcher constructor failed", e.getCause());
         } catch (ReflectiveOperationException e) {
             throw new RegexCompilationException("Failed to instantiate generated matcher", e);
         }
-    }
-
-    static byte[] emit(String internalName, FlattenedDfa dfa, boolean threaded, boolean classMap) {
-        return emit(internalName, dfa, threaded, classMap, true);
     }
 
     static byte[] emit(String internalName, FlattenedDfa dfa, boolean threaded, boolean classMap, boolean split) {
@@ -289,11 +293,13 @@ public final class AsmCodeGenerator implements CodeGenerator {
             clinit.visitEnd();
         }
 
-        MethodVisitor init = cw.visitMethod(ACC_PUBLIC, "<init>", "()V", null, null);
+        MethodVisitor init = cw.visitMethod(ACC_PUBLIC, "<init>", INIT, null, null);
         init.visitCode();
         init.visitVarInsn(ALOAD, 0);
         init.visitLdcInsn(dfa.pattern());
-        init.visitMethodInsn(INVOKESPECIAL, SUPER, "<init>", "(Ljava/lang/String;)V", false);
+        init.visitVarInsn(ALOAD, 1);
+        init.visitMethodInsn(INVOKESPECIAL, SUPER, "<init>",
+                "(Ljava/lang/String;Lorg/firej/capture/CapturePlan;)V", false);
         init.visitInsn(RETURN);
         init.visitMaxs(0, 0);
         init.visitEnd();
@@ -871,7 +877,7 @@ public final class AsmCodeGenerator implements CodeGenerator {
     }
 
     @Override
-    public String getName() {
+    public String name() {
         return !threaded ? "BYTECODE_SWITCH" : classMap ? "BYTECODE" : "BYTECODE_RANGES";
     }
 }

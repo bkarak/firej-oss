@@ -16,6 +16,7 @@
 package org.firej.runtime;
 
 import org.firej.Regex;
+import org.firej.capture.CapturePlan;
 
 /**
  * The base of every generated matcher and of the interpreter: the walk reads
@@ -48,8 +49,8 @@ public abstract class CharArrayRegex extends Regex {
     private CharSequence data = "";
     private int total;
 
-    protected CharArrayRegex(String regex) {
-        super(regex);
+    protected CharArrayRegex(String regex, CapturePlan capturePlan) {
+        super(regex, capturePlan);
     }
 
     @Override

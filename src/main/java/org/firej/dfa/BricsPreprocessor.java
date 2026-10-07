@@ -50,23 +50,13 @@ import org.firej.RegexCompilationException;
  *   bind to one branch, throw.</li>
  * </ul>
  */
-public final class PreProcessor {
-    private static final PreProcessor INSTANCE = new PreProcessor();
+public final class BricsPreprocessor implements Preprocessor {
+    private static final BricsPreprocessor INSTANCE = new BricsPreprocessor(Dialect.EXTENDED);
+    private static final BricsPreprocessor POSIX_INSTANCE = new BricsPreprocessor(Dialect.POSIX);
     private static final int MAX_CHAR = 0xFFFF;
     /** Special to Brics outside a class, literal in Perl and Java. */
     private static final String BRICS_OPERATORS = "#@\"<>~&";
 
-    /**
-     * The rewritten expression, the anchors that were removed from it, and
-     * which of its groups — counted by the order of their {@code (} in
-     * {@code expression} — do not capture ({@code (?:...)} in the source).
-     * Brics treats every parenthesis alike; the capture plan needs to know.
-     */
-    public record Processed(String expression, boolean anchoredStart, boolean anchoredEnd, BitSet nonCapturing) {
-        public Processed(String expression, boolean anchoredStart, boolean anchoredEnd) {
-            this(expression, anchoredStart, anchoredEnd, new BitSet());
-        }
-    }
 
     /** Sorted, non-overlapping, inclusive ranges. */
     private record Ranges(int[][] spans) {
@@ -110,7 +100,10 @@ public final class PreProcessor {
     private final Map<Character, Ranges> shorthands = new HashMap<>();
     private final Map<String, Ranges> named = new HashMap<>();
 
-    private PreProcessor() {
+    private final Dialect dialect;
+
+    private BricsPreprocessor(Dialect dialect) {
+        this.dialect = dialect;
         Ranges digit = Ranges.of('0', '9');
         Ranges space = Ranges.of('\t', '\r', ' ', ' ');
         Ranges word = Ranges.of('0', '9', 'A', 'Z', '_', '_', 'a', 'z');
@@ -136,8 +129,29 @@ public final class PreProcessor {
         named.put("Space", space);
     }
 
-    public static PreProcessor getInstance() {
+    public static BricsPreprocessor getInstance() {
         return INSTANCE;
+    }
+
+    /** The preprocessor for one dialect. */
+    public static BricsPreprocessor getInstance(Dialect dialect) {
+        return dialect == Dialect.POSIX ? POSIX_INSTANCE : INSTANCE;
+    }
+
+    @Override
+    public Dialect dialect() {
+        return dialect;
+    }
+
+    @Override
+    public String name() {
+        return "BRICS";
+    }
+
+    private RegexCompilationException notPosix(String what, String instead, String expr) {
+        return new RegexCompilationException(
+                what + " is not POSIX ERE (use " + instead + ") in: " + expr
+                        + " -- compiled with Dialect.POSIX; Dialect.EXTENDED accepts it");
     }
 
     /** The rewritten expression alone; anchors are dropped. */
@@ -145,6 +159,7 @@ public final class PreProcessor {
         return process(expr).expression();
     }
 
+    @Override
     public Processed process(String expr) {
         int n = expr.length();
         StringBuilder out = new StringBuilder(n + 16);
@@ -155,6 +170,7 @@ public final class PreProcessor {
         BitSet nonCapturing = new BitSet();
         int groups = 0;
         int depth = 0;
+        int rangeEnd = -1;   // index of the character that closes the last class range
         int i = 0;
         if (expr.startsWith("^")) {
             anchoredStart = true;
@@ -168,6 +184,23 @@ public final class PreProcessor {
             if (c == '\\') {
                 if (i + 1 >= n) {
                     throw new RegexCompilationException("Trailing backslash in: " + expr);
+                }
+                if (dialect == Dialect.POSIX) {
+                    char nd = expr.charAt(i + 1);
+                    if (shorthands.containsKey(nd)) {
+                        throw notPosix("\\" + nd, "[[:digit:]], [[:alpha:]] and the other named classes", expr);
+                    }
+                    if (nd == 'p' || nd == 'P') {
+                        throw notPosix("\\" + nd + "{...}", "[[:name:]]", expr);
+                    }
+                    if (nd == 'Q' || nd == 'E') {
+                        throw notPosix("\\" + nd, "a backslash before each character", expr);
+                    }
+                    if (Character.isLetterOrDigit(nd)) {
+                        throw notPosix("\\" + nd,
+                                "the character itself; POSIX leaves a backslash before an ordinary character undefined",
+                                expr);
+                    }
                 }
                 Expansion e = expansionAt(expr, i);
                 if (e != null) {
@@ -218,8 +251,35 @@ public final class PreProcessor {
                 continue;
             }
             if (inClass) {
+                if (c == '[' && i + 1 < n && expr.charAt(i + 1) == ':') {
+                    // Only a well-formed [:name:] is a POSIX class. "[:alpha]" -- no
+                    // closing colon -- is six literal characters in Java and in PCRE,
+                    // and the corpus contains one; treating it as a malformed class
+                    // and throwing would reject a pattern every other engine accepts.
+                    int close = expr.indexOf(":]", i + 2);
+                    String name = close < 0 ? null : expr.substring(i + 2, close);
+                    Ranges ranges = name != null && name.chars().allMatch(Character::isLetter)
+                            ? posixNamed(name)
+                            : null;
+                    if (ranges != null) {
+                        out.append(ranges.render());
+                        i = close + 2;
+                        continue;
+                    }
+                    // fall through: '[' is a literal inside a class
+                }
                 if (c == ']') {
                     inClass = false;
+                } else if (i != rangeEnd && i + 2 < n && expr.charAt(i + 1) == '-') {
+                    // In [A-Z-0] the '-' after a range is a literal, as in Java.
+                    char hi = expr.charAt(i + 2);
+                    if (hi != ']' && hi != '\\' && hi != '[') {
+                        if (hi < c) {
+                            throw new RegexCompilationException(
+                                    "Character range " + c + "-" + hi + " is out of order in: " + expr);
+                        }
+                        rangeEnd = i + 2;
+                    }
                 }
                 out.append(c);
                 i++;
@@ -243,6 +303,9 @@ public final class PreProcessor {
                 case '(' -> {
                     depth++;
                     if (i + 1 < n && expr.charAt(i + 1) == '?') {
+                        if (dialect == Dialect.POSIX) {
+                            throw notPosix("(?...", "a plain group", expr);
+                        }
                         if (expr.startsWith("(?:", i)) {
                             nonCapturing.set(groups++);
                             out.append('(');
@@ -294,7 +357,36 @@ public final class PreProcessor {
                     i++;
                     continue;
                 }
-                case '*', '+', '?', '}' -> {
+                case '*', '+', '?' -> {
+                    requireOperand(out, c, expr);
+                    out.append(c);
+                    i++;
+                    if (i < n && (expr.charAt(i) == '?' || expr.charAt(i) == '+')) {
+                        i++; // lazy or possessive: same language for a DFA
+                    }
+                    continue;
+                }
+                case '{' -> {
+                    java.util.regex.Matcher bounds = REPEAT.matcher(expr).region(i, n);
+                    if (bounds.lookingAt() && !hasOperand(out)) {
+                        // Nothing to repeat: Java and the native engine read the
+                        // braces as text, and so does this.
+                        for (int k = 0; k < bounds.group().length(); k++) {
+                            appendLiteral(out, bounds.group().charAt(k));
+                        }
+                        i = bounds.end();
+                        continue;
+                    }
+                    if (bounds.lookingAt()) {
+                        int min = Integer.parseInt(bounds.group(1));
+                        if (bounds.group(2) != null && !bounds.group(2).isEmpty()
+                                && Integer.parseInt(bounds.group(2)) < min) {
+                            throw new RegexCompilationException(
+                                    "Repetition " + bounds.group() + " has its bounds out of order in: " + expr);
+                        }
+                    }
+                }
+                case '}' -> {
                     out.append(c);
                     i++;
                     if (i < n && (expr.charAt(i) == '?' || expr.charAt(i) == '+')) {
@@ -409,6 +501,36 @@ public final class PreProcessor {
         }
     }
 
+    /** {@code {n}}, {@code {n,}} or {@code {n,m}}: group 1 is n, group 2 m (empty if open). */
+    private static final java.util.regex.Pattern REPEAT = java.util.regex.Pattern.compile("\\{(\\d+)(?:,(\\d*))?\\}");
+
+    /**
+     * A quantifier needs something before it to repeat. Brics reads one at the
+     * start of the expression, of a group or of a branch as a literal, so
+     * {@code *a} would silently match the text "*a"; Java and the native engine
+     * reject it, and so does this. (A {@code {n}} there is the exception: all
+     * three read it as text.)
+     */
+    private static void requireOperand(StringBuilder out, char quantifier, String expr) {
+        if (!hasOperand(out)) {
+            throw new RegexCompilationException("Quantifier '" + quantifier + "' has nothing to repeat in: " + expr);
+        }
+    }
+
+    /** Whether the rewritten expression so far ends in something a quantifier can repeat. */
+    private static boolean hasOperand(StringBuilder out) {
+        int last = out.length() - 1;
+        boolean operand = last >= 0;
+        if (operand && (out.charAt(last) == '(' || out.charAt(last) == '|')) {
+            int backslashes = 0;
+            for (int k = last - 1; k >= 0 && out.charAt(k) == '\\'; k--) {
+                backslashes++;
+            }
+            operand = backslashes % 2 == 1;
+        }
+        return operand;
+    }
+
     private static RegexCompilationException anchor(String expr, int at) {
         return new RegexCompilationException(
                 "Anchors are only supported as the first '^' or last '$' of the pattern (position "
@@ -423,6 +545,22 @@ public final class PreProcessor {
     }
 
     /** The shorthand starting at the backslash at {@code i}, or {@code null}. */
+    /** A POSIX [:name:] class; the names are the lowercase forms of the \p{} table. */
+    private Ranges posixNamed(String name) {
+        if (name.isEmpty()) {
+            return null;
+        }
+        String key = Character.toUpperCase(name.charAt(0)) + name.substring(1);
+        Ranges r = named.get(key);
+        if (r == null && name.equalsIgnoreCase("xdigit")) {
+            r = named.get("XDigit");
+        }
+        if (r == null && name.equalsIgnoreCase("ascii")) {
+            r = named.get("ASCII");
+        }
+        return r;
+    }
+
     private Expansion expansionAt(String expr, int i) {
         char d = expr.charAt(i + 1);
         Ranges simple = shorthands.get(d);

@@ -15,14 +15,22 @@
  */
 package org.firej.cache;
 
+/**
+ * Where a {@code Firej} engine keeps the templates it has compiled, keyed by
+ * the pattern as written. Implementations must be safe for concurrent use;
+ * plug one in with {@code Firej.builder().cache(...)}.
+ */
 public interface RegexCache {
+    /** The template for {@code regex}, or {@code null} on a miss. */
     RegexTemplate get(String regex);
 
     void put(String regex, RegexTemplate template);
 
+    /** Drops the template for {@code regex}, if there is one. */
     void remove(String regex);
 
     void clear();
 
-    String getName();
+    /** A short name, for diagnostics. */
+    String name();
 }

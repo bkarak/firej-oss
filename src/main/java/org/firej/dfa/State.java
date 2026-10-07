@@ -16,17 +16,9 @@
 package org.firej.dfa;
 
 public interface State {
-    void addTransition(Transition t);
-
     Transition[] getTransitions();
 
     boolean isAccept();
 
-    void setAccept(boolean accept);
-
     int getStateNumber();
-
-    int group();
-
-    DFA getDFA();
 }

@@ -15,7 +15,7 @@
  */
 package org.firej.runtime;
 
-import org.firej.Regex;
+import org.firej.capture.CapturePlan;
 import org.firej.dfa.FlattenedDfa;
 import org.firej.dfa.FlattenedDfa.Range;
 
@@ -30,8 +30,8 @@ public final class InterpreterRegex extends CharArrayRegex {
     private final boolean anchoredStart;
     private final boolean anchoredEnd;
 
-    public InterpreterRegex(FlattenedDfa dfa) {
-        super(dfa.pattern());
+    public InterpreterRegex(FlattenedDfa dfa, CapturePlan capturePlan) {
+        super(dfa.pattern(), capturePlan);
         this.startState = dfa.startState();
         this.accept = dfa.accept();
         this.transitions = dfa.transitions();
@@ -74,9 +74,5 @@ public final class InterpreterRegex extends CharArrayRegex {
 
     private int finish(int returnValue, int len) {
         return anchoredEnd && returnValue != len ? -1 : returnValue;
-    }
-
-    public static Regex create(FlattenedDfa dfa) {
-        return new InterpreterRegex(dfa);
     }
 }

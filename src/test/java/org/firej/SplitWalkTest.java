@@ -27,8 +27,9 @@ import java.util.Random;
 import org.firej.cache.CacheKind;
 import org.firej.codegen.AsmCodeGenerator;
 import org.firej.codegen.GeneratorKind;
+import org.firej.dfa.Preprocessor;
 import org.firej.dfa.FlattenedDfa;
-import org.firej.dfa.PreProcessor;
+import org.firej.dfa.BricsPreprocessor;
 import org.firej.dfa.automaton.ParserAutomaton;
 import org.firej.tools.CodeSize;
 import org.junit.jupiter.api.Test;
@@ -75,13 +76,13 @@ class SplitWalkTest {
     }
 
     private static FlattenedDfa flatten(String pattern) {
-        PreProcessor.Processed p = PreProcessor.getInstance().process(pattern);
-        return FlattenedDfa.from(pattern, new ParserAutomaton().getDFA(p.expression(), 0),
+        Preprocessor.Processed p = BricsPreprocessor.getInstance().process(pattern);
+        return FlattenedDfa.from(pattern, new ParserAutomaton().getDFA(p.expression()),
                 p.anchoredStart(), p.anchoredEnd());
     }
 
     private static int brics(String pattern, String input, int start) {
-        PreProcessor.Processed p = PreProcessor.getInstance().process(pattern);
+        Preprocessor.Processed p = BricsPreprocessor.getInstance().process(pattern);
         if (p.anchoredStart() && start != 0) {
             return -1;
         }

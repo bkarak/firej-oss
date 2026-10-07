@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import org.firej.parser.ParserKind;
+import org.firej.parser.Pipeline;
 import org.junit.jupiter.api.Test;
 
 class PatternMatcherTest {
@@ -55,10 +55,17 @@ class PatternMatcherTest {
         assertThrows(IllegalStateException.class, m::group);
     }
 
+    /**
+     * The native parser was a stub that threw; it is now the second working
+     * backend. {@code NativeEngineTest} covers it properly — this only pins that
+     * selecting it through the public builder produces a usable matcher.
+     */
     @Test
-    void nativeParserIsUnsupported() {
-        Firej fire = Firej.builder().parser(ParserKind.FIRE).build();
-        assertThrows(UnsupportedOperationException.class, () -> fire.compile("a"));
+    void nativeParserCompiles() {
+        Firej fire = Firej.builder().pipeline(Pipeline.NATIVE).build();
+        Regex r = fire.compile("[0-9]+");
+        r.setData("123");
+        assertEquals(3, r.exec(0));
     }
 
     @Test
@@ -125,5 +132,19 @@ class PatternMatcherTest {
         String src = Firej.standard().toJavaSource("[0-9]+");
         assertTrue(src.contains("switch (state)"));
         assertTrue(src.contains("walk"));
+    }
+
+    @Test
+    void javaSourceEscapesControlCharactersInThePatternLiteral() {
+        String src = Firej.standard().toJavaSource("a\nb\"c\\\\");
+        assertTrue(src.contains("super(\"a\\012b\\\"c\\\\\\\\\", capturePlan);"), src);
+    }
+
+    @Test
+    void findRejectsAStartOutsideTheInput() {
+        Matcher m = Pattern.compile("[0-9]+").matcher("12");
+        assertThrows(IndexOutOfBoundsException.class, () -> m.find(-1));
+        assertThrows(IndexOutOfBoundsException.class, () -> m.find(3));
+        assertFalse(m.find(2));
     }
 }

@@ -17,7 +17,6 @@ package org.firej.codegen;
 
 import org.firej.dfa.FlattenedDfa;
 import org.firej.dfa.FlattenedDfa.Range;
-import org.firej.util.SourceBuilder;
 
 /**
  * Renders a flattened DFA as Java source, equivalent to the old Velocity
@@ -31,8 +30,8 @@ public final class JavaSourceRenderer {
         String ret = "pos = i; " + (dfa.anchoredEnd() ? "return returnValue == len ? returnValue : -1;" : "return returnValue;");
         SourceBuilder src = new SourceBuilder();
         src.appendln("public final class GeneratedRegex extends org.firej.runtime.CharArrayRegex {");
-        src.appendln(1, "public GeneratedRegex() {");
-        src.appendln(2, "super(" + quote(dfa.pattern()) + ");");
+        src.appendln(1, "public GeneratedRegex(org.firej.capture.CapturePlan capturePlan) {");
+        src.appendln(2, "super(" + quote(dfa.pattern()) + ", capturePlan);");
         src.appendln(1, "}");
         src.appendln();
         src.appendln(1, "@Override");
@@ -75,7 +74,27 @@ public final class JavaSourceRenderer {
         return src.toString();
     }
 
+    /**
+     * A Java string literal for {@code s}. Control characters are written as
+     * octal escapes: a Unicode escape is translated before the lexer runs, so
+     * a newline written as one would end the literal.
+     */
     private static String quote(String s) {
-        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        StringBuilder b = new StringBuilder(s.length() + 2).append('"');
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\' -> b.append("\\\\");
+                case '"' -> b.append("\\\"");
+                default -> {
+                    if (c < 0x20 || c == 0x7f) {
+                        b.append("\\%03o".formatted((int) c));
+                    } else {
+                        b.append(c);
+                    }
+                }
+            }
+        }
+        return b.append('"').toString();
     }
 }

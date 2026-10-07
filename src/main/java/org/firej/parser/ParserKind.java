@@ -16,6 +16,7 @@
 package org.firej.parser;
 
 import org.firej.dfa.Parser;
+import org.firej.dfa.Preprocessor;
 import org.firej.dfa.automaton.ParserAutomaton;
 import org.firej.dfa.fire.ParserFire;
 
@@ -23,10 +24,14 @@ public enum ParserKind {
     AUTOMATON,
     FIRE;
 
-    public Parser create() {
+    /**
+     * The engine for {@code dialect}. Only {@code FIRE} reads the dialect itself;
+     * {@code AUTOMATON} is handed what the {@code BRICS} preprocessor rewrote.
+     */
+    public Parser create(Preprocessor.Dialect dialect) {
         return switch (this) {
             case AUTOMATON -> new ParserAutomaton();
-            case FIRE -> new ParserFire();
+            case FIRE -> new ParserFire(dialect);
         };
     }
 }

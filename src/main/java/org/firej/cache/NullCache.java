@@ -27,17 +27,17 @@ public final class NullCache implements RegexCache {
     }
 
     @Override
-    public void remove(String regex) {
-        // no-op
-    }
-
-    @Override
     public void clear() {
         // no-op
     }
 
     @Override
-    public String getName() {
+    public void remove(String regex) {
+        // nothing is kept
+    }
+
+    @Override
+    public String name() {
         return "DISABLED";
     }
 }

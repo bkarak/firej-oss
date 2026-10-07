@@ -55,8 +55,9 @@ public record FlattenedDfa(String pattern, int startState, boolean[] accept, Ran
         return accept.length;
     }
 
-    public static FlattenedDfa from(String pattern, DFA dfa) {
-        return from(pattern, dfa, false, false);
+    /** This automaton in the Graphviz DOT language; see {@link DotRenderer}. */
+    public String toDot() {
+        return DotRenderer.render(this);
     }
 
     public static FlattenedDfa from(String pattern, DFA dfa, boolean anchoredStart, boolean anchoredEnd) {
@@ -74,9 +75,6 @@ public record FlattenedDfa(String pattern, int startState, boolean[] accept, Ran
         }
         if (seen.add(initial.getStateNumber())) {
             all.addFirst(initial);
-        }
-        if (all.isEmpty()) {
-            all.add(initial);
         }
 
         all.sort(Comparator.comparingInt(State::getStateNumber));
@@ -98,7 +96,7 @@ public record FlattenedDfa(String pattern, int startState, boolean[] accept, Ran
                 if (dest == null) {
                     continue;
                 }
-                ranges.add(new Range(t.getMinAsInt(), t.getMaxAsInt(), dest));
+                ranges.add(new Range(t.getMin(), t.getMax(), dest));
             }
             ranges.sort(Comparator.comparingInt(Range::min).thenComparingInt(Range::max));
             transitions[i] = ranges.toArray(Range[]::new);

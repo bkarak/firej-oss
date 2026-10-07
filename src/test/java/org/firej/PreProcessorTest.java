@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.stream.Stream;
 
-import org.firej.dfa.PreProcessor;
+import org.firej.dfa.BricsPreprocessor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -71,7 +71,7 @@ class PreProcessorTest {
 
     @Test
     void escapedBackslashIsNotAShorthand() {
-        assertEquals("a\\\\d", PreProcessor.getInstance().processExpression("a\\\\d"));
+        assertEquals("a\\\\d", BricsPreprocessor.getInstance().processExpression("a\\\\d"));
         Regex r = Regex.compile("a\\\\d");
         assertTrue(r.matches("a\\d"));
         assertFalse(r.matches("a5"));
@@ -79,7 +79,7 @@ class PreProcessorTest {
 
     @Test
     void expansionText() {
-        PreProcessor pp = PreProcessor.getInstance();
+        BricsPreprocessor pp = BricsPreprocessor.getInstance();
         assertEquals("[0-9]", pp.processExpression("\\d"));
         assertEquals("[^0-9]", pp.processExpression("[^\\d]"));
         assertEquals("[a-]", pp.processExpression("[a-]"));

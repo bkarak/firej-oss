@@ -15,35 +15,48 @@
  */
 package org.firej.dfa.fire;
 
+import org.firej.dfa.Preprocessor;
 import org.firej.dfa.DFA;
 import org.firej.dfa.Parser;
-import org.firej.dfa.PreProcessor;
 
 /**
- * Placeholder for the never-finished native POSIX parser. The 2007 sources
- * returned an empty DFA; that silently compiled every pattern to a non-matcher.
- * This backend now fails fast — use {@link org.firej.parser.ParserKind#AUTOMATON}.
+ * The native parser: pattern text straight to a minimal {@code DFA}, with no
+ * intermediate dialect and no third-party automaton library.
+ *
+ * <p>This is the backend the 2007 sources left unfinished. The preprocessor
+ * exists because the automaton library of the time could not express a character
+ * class: {@code \d} had to be rewritten into explicit ranges, and those ranges
+ * re-escaped into that library's own syntax, before anything could be parsed. So
+ * a pattern was written once by the user, rewritten by the preprocessor, and
+ * parsed a second time by the library — and every one of the dialect defects
+ * found on 2026-09-06 lived in that rewriting step, where a {@code \t} became
+ * the letter t and {@code \b} became the letter b.
+ *
+ * <p>{@link RegexParser} reads the dialect directly and yields a tree over
+ * {@link CharSet} values, so the rewriting step is gone. Lifting the anchors — the
+ * only thing that still has to happen before an automaton can be built, because an
+ * automaton has no notion of position — is {@link IdentityPreprocessor}'s job, the
+ * first stage of the same pipeline.
+ *
+ * <p>Semantics are those of the other backend — leftmost-longest, no
+ * backreferences, no lookaround — and the two are checked against each other on
+ * both corpora.
  */
 public final class ParserFire implements Parser {
 
-    @Override
-    public PreProcessor.Processed preprocess(String regex) {
-        return new PreProcessor.Processed(regex, false, false);
+    private final Preprocessor.Dialect dialect;
+
+    public ParserFire(Preprocessor.Dialect dialect) {
+        this.dialect = dialect;
     }
 
     @Override
-    public DFA getDFA(String expression, int flags) {
-        throw new UnsupportedOperationException(
-                "The native FIRE parser was never completed; use ParserKind.AUTOMATON");
+    public DFA getDFA(String expression) {
+        return DfaCompiler.compile(expression, dialect);
     }
 
     @Override
-    public String getAuthor() {
-        return "Vassilios Karakoidas";
-    }
-
-    @Override
-    public String getName() {
+    public String name() {
         return "FIRE";
     }
 }

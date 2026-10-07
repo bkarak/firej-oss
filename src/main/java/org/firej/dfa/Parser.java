@@ -16,21 +16,21 @@
 package org.firej.dfa;
 
 /**
- * Builds a {@link DFA} from a regular expression string.
+ * The second stage of the pipeline: builds a {@link DFA} from an expression a
+ * {@link Preprocessor} has already handed over.
+ *
+ * <p>This interface used to own the preprocessing too, which tied each engine to
+ * one front end. They are separate stages now, so a configuration is
+ * <em>preprocessor, engine, generator</em> and the three vary independently.
+ *
+ * @see Preprocessor
  */
 public interface Parser {
     /**
-     * Rewrites shorthands and lifts anchors out of a user pattern. The result's
-     * {@link PreProcessor.Processed#expression()} is what {@link #getDFA} takes.
-     */
-    PreProcessor.Processed preprocess(String regex);
-
-    /**
      * Builds the automaton for an already-preprocessed expression.
      */
-    DFA getDFA(String expression, int flags);
+    DFA getDFA(String expression);
 
-    String getAuthor();
-
-    String getName();
+    /** A short name, for diagnostics. */
+    String name();
 }

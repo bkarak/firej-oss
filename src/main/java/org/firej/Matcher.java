@@ -64,11 +64,28 @@ public final class Matcher {
         return matched;
     }
 
+    /**
+     * The next match, starting where the last one ended (one past it, if it
+     * was empty).
+     */
     public boolean find() {
-        return find(lastFind);
+        return search(lastFind);
     }
 
+    /**
+     * The first match starting at or after {@code start}.
+     *
+     * @throws IndexOutOfBoundsException if {@code start} is negative or past
+     *         the end of the input
+     */
     public boolean find(int start) {
+        if (start < 0 || start > input.length()) {
+            throw new IndexOutOfBoundsException("Illegal start index " + start);
+        }
+        return search(start);
+    }
+
+    private boolean search(int start) {
         int len = input.length();
         for (int i = start; i <= len; i++) {
             int end = regex.run(i);

@@ -15,18 +15,11 @@
  */
 package org.firej.dfa;
 
+/** An edge on the inclusive character range {@code [getMin(), getMax()]}. */
 public interface Transition {
     State getDest();
 
-    char getMax();
+    int getMin();
 
-    char getMin();
-
-    int getMinAsInt();
-
-    int getMaxAsInt();
-
-    boolean isSingle();
-
-    State getState();
+    int getMax();
 }

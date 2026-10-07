@@ -47,10 +47,11 @@ import org.firej.Regex;
 import org.firej.cache.CacheKind;
 import org.firej.codegen.AsmCodeGenerator;
 import org.firej.codegen.GeneratorKind;
+import org.firej.dfa.Preprocessor;
 import org.firej.dfa.DFA;
 import org.firej.dfa.FlattenedDfa;
 import org.firej.dfa.FlattenedDfa.Range;
-import org.firej.dfa.PreProcessor;
+import org.firej.dfa.BricsPreprocessor;
 import org.firej.dfa.automaton.ParserAutomaton;
 import org.objectweb.asm.MethodTooLargeException;
 
@@ -444,7 +445,7 @@ public final class SizeBenchmark {
         }
 
         static BricsSubject of(String pattern, String input) {
-            PreProcessor.Processed p = PreProcessor.getInstance().process(pattern);
+            Preprocessor.Processed p = BricsPreprocessor.getInstance().process(pattern);
             Automaton automaton = new RegExp(p.expression()).toAutomaton();
             automaton.determinize();
             return new BricsSubject(new RunAutomaton(automaton), input, p.anchoredEnd());
@@ -684,8 +685,8 @@ public final class SizeBenchmark {
     // ------------------------------------------------------------- shape
 
     public static Shape shape(String pattern) {
-        PreProcessor.Processed p = PreProcessor.getInstance().process(pattern);
-        DFA dfa = new ParserAutomaton().getDFA(p.expression(), 0);
+        Preprocessor.Processed p = BricsPreprocessor.getInstance().process(pattern);
+        DFA dfa = new ParserAutomaton().getDFA(p.expression());
         FlattenedDfa flat = FlattenedDfa.from(pattern, dfa, p.anchoredStart(), p.anchoredEnd());
         int ranges = 0;
         int maxRanges = 0;
